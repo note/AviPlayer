@@ -1,0 +1,1 @@
+arm-none-eabi-gcc cstartup.S main.o Cstartup_SAM9.o syscalls.o delay.o dbgu.o lcd.o -mcpu=arm926ej-s -nostartfiles -T./include/sdram.lds -Wl,-Map=test_ram.map,--cref,--no-warn-mismatch    -o test_ram.elf

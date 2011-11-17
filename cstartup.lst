@@ -1,0 +1,303 @@
+ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
+
+
+   1              	# 1 "cstartup.s"
+   1              	/* ----------------------------------------------------------------------------
+   0              	
+   0              	
+   0              	
+   2              	 *         ATMEL Microcontroller Software Support  -  ROUSSET  -
+   3              	 * ----------------------------------------------------------------------------
+   4              	 * Copyright (c) 2006, Atmel Corporation
+   5              	
+   6              	 * All rights reserved.
+   7              	 * 
+   8              	 * Redistribution and use in source and binary forms, with or without
+   9              	 * modification, are permitted provided that the following conditions are met:
+  10              	 * 
+  11              	 * - Redistributions of source code must retain the above copyright notice,
+  12              	 * this list of conditions and the disclaimer below.
+  13              	 * 
+  14              	 * - Redistributions in binary form must reproduce the above copyright notice,
+  15              	 * this list of conditions and the disclaimer below in the documentation and/or
+  16              	 * other materials provided with the distribution. 
+  17              	 * 
+  18              	 * Atmel's name may not be used to endorse or promote products derived from
+  19              	 * this software without specific prior written permission. 
+  20              	 * 
+  21              	 * DISCLAIMER: THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR
+  22              	 * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+  23              	 * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
+  24              	 * DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR ANY DIRECT, INDIRECT,
+  25              	 * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  26              	 * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+  27              	 * OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  28              	 * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+  29              	 * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+  30              	 * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  31              	 */
+  32              	 
+  33              	 /*
+  34              	 modified by RABW, 2008
+  35              		- removed accesses to sections: .prerelocate and .postrelocate
+  36              		- .posrelocate section is now .relocate section - simply
+  37              		- copying .data section contents from flash image to RAM is done AFTER a call to AT91F_LowLevelIni
+  38              			=> thus don't use any variables occupying .data section in AT91F_LowLevelInit (they will not be i
+  39              			   in AT91F_LowLevelInit the stack already is initialized, so any automatic variables and constat
+  40              		- added a few more or less stupid comments to assembly lines
+  41              		- removed some dead calls just after resetHandler label
+  42              		- added simple support for Data Abort and Prefetch Abort exceptions
+  43              		
+  44              	 */
+  45              	
+  46              	//------------------------------------------------------------------------------
+  47              	//         Definitions
+  48              	//------------------------------------------------------------------------------
+  49              	
+  50              	#define IRQ_STACK_SIZE   8*3*4		//saving 3 registers to IRQ stack for each of 8 priorities
+  51              	#define FIQ_STACK_SIZE   0x100		//FIQ uses its own stack
+  52              	
+  53              	#define ARM_MODE_ABT     0x17
+ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 2
+
+
+  54              	#define ARM_MODE_FIQ     0x11
+  55              	#define ARM_MODE_IRQ     0x12
+  56              	#define ARM_MODE_SVC     0x13
+  57              	
+  58              	#define I_BIT            0x80
+  59              	#define F_BIT            0x40
+  60              	
+  61              	#define AT91C_BASE_AIC   0xFFFFF000
+  62              	#define AIC_IVR          0x100
+  63              	#define AIC_FVR          0x104
+  64              	#define AIC_EOICR        0x130
+  65              	
+  66              	//------------------------------------------------------------------------------
+  67              	//         Startup routine
+  68              	//------------------------------------------------------------------------------
+  69              	
+  70              	            .align      4
+  71              	            .arm
+  72              	        
+  73              	/* Exception vectors
+  74              	 *******************/
+  75              	            .section    .vectors, "a", %progbits
+  76              	
+  77              	resetVector:
+  78 0000 A8F09FE5 	        ldr     pc, =resetHandler       /* Reset */
+  79              	undefVector:
+  80 0004 FEFFFFEA 	        b       undefVector             /* Undefined instruction */
+  81              	swiVector:
+  82 0008 FEFFFFEA 	        b       swiVector               /* Software interrupt */
+  83              	prefetchAbortVector:
+  84 000c 100000EA 	        b       prefetchAbortHandler     /* Prefetch abort */
+  85              	dataAbortVector:
+  86 0010 0A0000EA 	        b       dataAbortHandler         /* Data abort */
+  87              	reservedVector:
+  88 0014 FEFFFFEA 	        b       reservedVector          /* Reserved for future use */
+  89              	irqVector:
+  90 0018 120000EA 	        b       irqHandler              /* Interrupt */
+  91              	fiqVector:
+  92              	                                        /* Fast interrupt */
+  93              	//------------------------------------------------------------------------------
+  94              	/// Handles a fast interrupt request by branching to the address defined in the
+  95              	/// AIC.
+  96              	//------------------------------------------------------------------------------
+  97              	
+  98              	/*- Set FIQ Base */
+  99 001c 90809FE5 			ldr         r8, =AT91C_BASE_AIC	//using banked reg. r8
+ 100              	
+ 101              	/*- Save r0 in R9 (banked) */
+ 102 0020 0090A0E1 			mov         r9,r0
+ 103 0024 040198E5 			ldr         r0 , [r8, #AIC_FVR]
+ 104              	
+ 105              	/*- Save scratch/used registers and LR in FIQ Stack */
+ 106 0028 0E402DE9 			stmfd       sp!, { r1-r3, lr}
+ 107              	
+ 108              	/*- Branch to the routine pointed by the AIC_FVR */
+ 109 002c 0FE0A0E1 			mov         lr, pc
+ 110 0030 10FF2FE1 			bx          r0
+ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 3
+
+
+ 111              	
+ 112              	/*- Restore scratch/used registers and LR from FIQ Stack */
+ 113 0034 0E40BDE8 			ldmia       sp!, { r1-r3, lr}
+ 114              	
+ 115              	/*- Restore the R0 register */
+ 116 0038 0900A0E1 			mov         r0,r9
+ 117              	
+ 118              	/*- Restore the Program Counter using the LR_fiq directly in the PC */
+ 119 003c 04F05EE2 			subs        pc,lr,#4
+ 120              	
+ 121              	
+ 122              	
+ 123              	dataAbortHandler:
+ 124              		//change state to supervisor, disable IRQ and FIQ
+ 125 0040 D3F021E3 	        msr     CPSR_c, #ARM_MODE_SVC | I_BIT | F_BIT
+ 126              		
+ 127              		//save registers to supervisor stack
+ 128 0044 FF5F2DE9 	        stmfd   sp!, {r0-r12, lr}
+ 129              		
+ 130              		//jump to high level abort handler
+ 131 0048 68009FE5 		    ldr     r0, =defaultDataAbortHandler
+ 132 004c 0FE0A0E1 	        mov     lr, pc
+ 133 0050 10FF2FE1 	        bx      r0
+ 134              	
+ 135              	prefetchAbortHandler:
+ 136              		//change state to supervisor, disable IRQ and FIQ
+ 137 0054 D3F021E3 	        msr     CPSR_c, #ARM_MODE_SVC | I_BIT | F_BIT
+ 138              		
+ 139              		//save registers to supervisor stack
+ 140 0058 FF5F2DE9 	        stmfd   sp!, {r0-r12, lr}
+ 141              		
+ 142              		//jump to high level abort handler
+ 143 005c 58009FE5 		    ldr     r0, =defaultPrefetchAbortHandler
+ 144 0060 0FE0A0E1 	        mov     lr, pc
+ 145 0064 10FF2FE1 	        bx      r0
+ 146              	
+ 147              		
+ 148              	//------------------------------------------------------------------------------
+ 149              	/// Handles incoming interrupt requests by branching to the corresponding
+ 150              	/// handler, as defined in the AIC. Supports interrupt nesting.
+ 151              	//------------------------------------------------------------------------------
+ 152              	irqHandler:
+ 153              	
+ 154              	/* Save interrupt context on the stack to allow nesting */
+ 155 0068 04E04EE2 	        sub     lr, lr, #4
+ 156 006c 00402DE9 	        stmfd   sp!, {lr}
+ 157 0070 00E04FE1 	        mrs     lr, SPSR
+ 158 0074 01402DE9 	        stmfd   sp!, {r0, lr}
+ 159              	
+ 160              	/* Write in the IVR to support Protect Mode */
+ 161 0078 34E09FE5 	        ldr     lr, =AT91C_BASE_AIC
+ 162 007c 00019EE5 	        ldr     r0, [lr, #AIC_IVR]
+ 163 0080 00E18EE5 	        str     lr, [lr, #AIC_IVR]
+ 164              	
+ 165              	/* Branch to interrupt handler in Supervisor mode */
+ 166 0084 13F021E3 	        msr     CPSR_c, #ARM_MODE_SVC
+ 167 0088 0E502DE9 	        stmfd   sp!, {r1-r3, r12, lr}
+ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 4
+
+
+ 168 008c 0FE0A0E1 	        mov     lr, pc
+ 169 0090 10FF2FE1 	        bx      r0
+ 170              			
+ 171              	/* Restore scratch/used registers and LR from User Stack */
+ 172 0094 0E50BDE8 	        ldmia   sp!, {r1-r3, r12, lr}
+ 173              			
+ 174              	/* Disable Interrupt and switch back to IRQ mode */
+ 175 0098 92F021E3 	        msr     CPSR_c, #ARM_MODE_IRQ | I_BIT
+ 176              			
+ 177              	/* Acknowledge interrupt */
+ 178 009c 10E09FE5 	        ldr     lr, =AT91C_BASE_AIC
+ 179 00a0 30E18EE5 	        str     lr, [lr, #AIC_EOICR]
+ 180              			
+ 181              	/* Restore interrupt context and branch back to calling code */
+ 182 00a4 0140BDE8 	        ldmia   sp!, {r0, lr}
+ 183 00a8 0EF06FE1 	        msr     SPSR_cxsf, lr
+ 184 00ac 0080FDE8 	        ldmia   sp!, {pc}^ /* A4-40, ^ = SPSR of the current mode is to be copied to the CPSR */
+ 185              	
+ 186              	
+ 187              	//------------------------------------------------------------------------------
+ 188              	/// Initializes the chip and branches to the main() function.
+ 189              	//------------------------------------------------------------------------------
+ 190              	            .section    .text
+ 191              	            .global     entry
+ 192              	
+ 193              	entry:
+ 194              	resetHandler:
+ 195              	
+ 196              	/* Perform low-level initialization of the chip using AT91F_LowLevelInit() */
+ 197 0000 6CD09FE5 	        ldr     sp, =_sstack
+ 198 0004 6C009FE5 		    ldr     r0, =AT91F_LowLevelInit
+ 199 0008 0FE0A0E1 	        mov     lr, pc
+ 200 000c 10FF2FE1 	        bx      r0
+ 201              	
+ 202              	/* Copy .relocate section from image to its VMA */
+ 203 0010 64009FE5 	        ldr     r0, =_efixed
+ 204 0014 64109FE5 	        ldr     r1, =_srelocate
+ 205 0018 64209FE5 	        ldr     r2, =_erelocate
+ 206              	1:
+ 207 001c 020051E1 	        cmp     r1, r2			//compare r1 - r2
+ 208 0020 04309034 	        ldrcc   r3, [r0], #4	//if C flag is clear, copy next word from _efixed pointed by r0 to r3
+ 209 0024 04308134 	        strcc   r3, [r1], #4	//copy r3 to the address pointed by r1 (in RAM)
+ 210 0028 FBFFFF3A 	        bcc     1b				//jump one label "1:" backward (1b). "1f" means 1 label forward (simply loop)
+ 211              	
+ 212              	/* Clear the zero segment */
+ 213 002c 54009FE5 		    ldr     r0, =_szero
+ 214 0030 54109FE5 	        ldr     r1, =_ezero
+ 215 0034 0020A0E3 	        mov     r2, #0			//value to be written (0)
+ 216              	1:
+ 217 0038 010050E1 	        cmp     r0, r1
+ 218 003c 04208034 	        strcc   r2, [r0], #4
+ 219 0040 FCFFFF3A 	        bcc     1b
+ 220              	
+ 221              	/* Setup stacks
+ 222              	 **************/
+ 223              	/* FIQ mode */
+ 224 0044 D1F021E3 	        msr     CPSR_c, #ARM_MODE_FIQ | I_BIT | F_BIT	//move control flags (_c) to CPSR: mode=FIQ, 
+ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 5
+
+
+ 225 0048 24D09FE5 	        ldr     sp, =_sstack							//sp = _sstack (see .lds file)
+ 226 004c 014C4DE2 	        sub     r4, sp, #FIQ_STACK_SIZE					//r4 = sp - FIQ_STACK_SIZE;
+ 227              	
+ 228              	/* IRQ mode */
+ 229 0050 D2F021E3 	        msr     CPSR_c, #ARM_MODE_IRQ | I_BIT | F_BIT	//move control flags (_c) to CPSR: mode=IRQ, 
+ 230 0054 04D0A0E1 	        mov     sp, r4									//sp (IRQ) = r4 = _sstack - FIQ_STACK_SIZE
+ 231 0058 60404DE2 	        sub     r4, sp, #IRQ_STACK_SIZE					//r4 = sp - IRQ_STACK_SIZE;
+ 232              			
+ 233              	/* Supervisor mode (interrupts enabled) */
+ 234 005c 13F021E3 	        msr     CPSR_c, #ARM_MODE_SVC					//back to supervisor mode, FIQ still masked
+ 235 0060 04D0A0E1 	        mov     sp, r4									//supervisor stack @ address = _sstack - IRQ_STACK_SIZE (=r4)
+ 236              	
+ 237              	/* Branch to main()
+ 238              	 ******************/
+ 239 0064 24009FE5 	        ldr     r0, =main	//load address of main to r0
+ 240 0068 0FE0A0E1 	        mov     lr, pc		//move value in PC into link register
+ 241 006c 10FF2FE1 	        bx      r0			//branch to main
+ 242              	
+ 243              	/* Loop indefinitely when program is finished */
+ 244              	1:
+ 245 0070 FEFFFFEA 	        b       1b
+ 245      00000000 
+ 245      00000000 
+ 245      00000000 
+ 245      00000000 
+ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 6
+
+
+DEFINED SYMBOLS
+          cstartup.s:70     .text:00000000 $a
+          cstartup.s:77     .vectors:00000000 resetVector
+          cstartup.s:194    .text:00000000 resetHandler
+          cstartup.s:78     .vectors:00000000 $a
+          cstartup.s:79     .vectors:00000004 undefVector
+          cstartup.s:81     .vectors:00000008 swiVector
+          cstartup.s:83     .vectors:0000000c prefetchAbortVector
+          cstartup.s:135    .vectors:00000054 prefetchAbortHandler
+          cstartup.s:85     .vectors:00000010 dataAbortVector
+          cstartup.s:123    .vectors:00000040 dataAbortHandler
+          cstartup.s:87     .vectors:00000014 reservedVector
+          cstartup.s:89     .vectors:00000018 irqVector
+          cstartup.s:152    .vectors:00000068 irqHandler
+          cstartup.s:91     .vectors:0000001c fiqVector
+          cstartup.s:193    .text:00000000 entry
+          cstartup.s:245    .text:00000074 $d
+          cstartup.s:190    .vectors:000000b0 $d
+                   .debug_aranges:0000000c $d
+          cstartup.s:245    .text:00000094 $a
+
+UNDEFINED SYMBOLS
+defaultDataAbortHandler
+defaultPrefetchAbortHandler
+_sstack
+AT91F_LowLevelInit
+_efixed
+_srelocate
+_erelocate
+_szero
+_ezero
+main
