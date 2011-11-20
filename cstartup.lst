@@ -1,4 +1,4 @@
-ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
+ARM GAS  C:\Users\michal\AppData\Local\Temp\ccJioCig.s 			page 1
 
 
    1              	# 1 "cstartup.s"
@@ -58,7 +58,7 @@ ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
   51              	#define FIQ_STACK_SIZE   0x100		//FIQ uses its own stack
   52              	
   53              	#define ARM_MODE_ABT     0x17
-ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 2
+ARM GAS  C:\Users\michal\AppData\Local\Temp\ccJioCig.s 			page 2
 
 
   54              	#define ARM_MODE_FIQ     0x11
@@ -118,7 +118,7 @@ ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
  108              	/*- Branch to the routine pointed by the AIC_FVR */
  109 002c 0FE0A0E1 			mov         lr, pc
  110 0030 10FF2FE1 			bx          r0
-ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 3
+ARM GAS  C:\Users\michal\AppData\Local\Temp\ccJioCig.s 			page 3
 
 
  111              	
@@ -178,7 +178,7 @@ ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
  165              	/* Branch to interrupt handler in Supervisor mode */
  166 0084 13F021E3 	        msr     CPSR_c, #ARM_MODE_SVC
  167 0088 0E502DE9 	        stmfd   sp!, {r1-r3, r12, lr}
-ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 4
+ARM GAS  C:\Users\michal\AppData\Local\Temp\ccJioCig.s 			page 4
 
 
  168 008c 0FE0A0E1 	        mov     lr, pc
@@ -238,7 +238,7 @@ ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
  222              	 **************/
  223              	/* FIQ mode */
  224 0044 D1F021E3 	        msr     CPSR_c, #ARM_MODE_FIQ | I_BIT | F_BIT	//move control flags (_c) to CPSR: mode=FIQ, 
-ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 5
+ARM GAS  C:\Users\michal\AppData\Local\Temp\ccJioCig.s 			page 5
 
 
  225 0048 24D09FE5 	        ldr     sp, =_sstack							//sp = _sstack (see .lds file)
@@ -266,7 +266,7 @@ ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 1
  245      00000000 
  245      00000000 
  245      00000000 
-ARM GAS  C:\Users\michal\AppData\Local\Temp\cczCKu8l.s 			page 6
+ARM GAS  C:\Users\michal\AppData\Local\Temp\ccJioCig.s 			page 6
 
 
 DEFINED SYMBOLS

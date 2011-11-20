@@ -243,7 +243,7 @@ static void lcdSpiInit(void)
 	//LCD_SPI enable and reset
 	LCD_SPI->SPI_CR = AT91C_SPI_SWRST;
 	
-	const uint8_t DELAY_BETWEEN_CHIP_SELECTS = 0xFF;
+	const uint8_t DELAY_BETWEEN_CHIP_SELECTS = 0x0e;
 	const uint32_t DLYBCS_MASK	= (uint32_t)DELAY_BETWEEN_CHIP_SELECTS << 24;
 	
 	//LCD_SPI Mode Register: Fault detection disable, fixed periph. chip select
@@ -251,7 +251,7 @@ static void lcdSpiInit(void)
 	
 	LCD_SPI->SPI_CR = AT91C_SPI_SPIEN;
 	
-	const uint8_t BAUD_DIVIDER = 0x10;
+	const uint8_t BAUD_DIVIDER = 0x02;
 	const uint8_t DELAY_BEFORE_SPCK = 0;
 	const uint8_t DELAY_BETWEEN_CONSECUTIVE_TRANSFERS = 0;
 	
@@ -280,10 +280,15 @@ void lcdWriteRgb555(uint16_t *rgb555)
 	while(i--)
 	{
 		int32_t col = *rgb555;
+		int32_t rgMask = (col << 1) & 0xFFE0;
+		int32_t bMask = col & 0x001F;
+		*rgb555++ = rgMask | bMask;
+		
+		/*int32_t col = *rgb555;
 		int32_t rMask = (col << 1) & 0xF800;
 		int32_t gMask = (col << 1) & 0x07C0;
 		int32_t bMask = col & 0x001F;
-		*rgb555++ = rMask | gMask | bMask;
+		*rgb555++ = rMask | gMask | bMask;*/
 	}
 }
 

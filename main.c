@@ -49,7 +49,10 @@ int main( void )
 	xprintf("otwarcie pliku %d\n", res);
 	
 	lcdInit();
-	while(1) playMovie(&file);
+	while(1) {
+		playMovie(&file);
+		delay_ms(3000);
+	}
 		
 	/*for(int i=0; i<LCD_Y_SIZE/3; ++i)
 		for(int j=0; j<LCD_X_SIZE; ++j){
